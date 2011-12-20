@@ -1,1 +1,2 @@
-sjasmplus main.asm
+all:
+	sjasmplus main.asm
