@@ -7,7 +7,8 @@ start:
 next_shot_timeout	byte 0
 ammo_hold_current	byte 0
 
-
+test
+	ld a,(hl)
 
 	struct weapon
 speed	byte 0 ;начальная скорость пули
