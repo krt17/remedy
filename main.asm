@@ -1,5 +1,6 @@
 	device zxspectrum48
 	org #6000
+	display "start ",$
 start:
 	ei
 	call init
@@ -230,7 +231,7 @@ game
 	or a
 	jr z,.loop
 
-	call fade_all
+;	call fade_all
 	call cls	
 	call end_scr
 	jp main_menu
@@ -273,30 +274,19 @@ info_scr
 scr_out:
 	ld de,#4000
 	ld ix,map_1
-.loop1
-	ld a,(ix)
-	inc ix
-	push de
-	call screen.out_4x4
-	pop de
-	ld a,e
-	add a,#04
-	ld e,a	
-	and %00011111
-	jr nz,.loop1
-	ld a,e
-	add 3*#20
-	ld e,a
-	jr nz,.loop1
-	ld a,d
-	add 8
-	ld d,a
-	and %00011111
-	cp #18
-	jr nz,.loop1
+	ld bc,#0008
+	ld hl,#1820
+	call screen.out_map
 	ret
 game_cycle
-
+	call key.get
+	xor a
+	call key.stat
+	ld a,#00
+	jr nc,.lab1
+	ld a,#01
+.lab1
+	ld (game_stat),a
 	halt
 	ret
 
@@ -354,14 +344,13 @@ cls:
 	ret
 @attr	db %00000111
 @border	db %00000000
-
+	display "modules ",$
 	include "module.asm"
-
 control_keys:
 	ds 8
 chrset:	dw font-#100
 code_end:
-	display $
+	display "tables ",$
 //----------------------------
 tables_start:
 	align #100
@@ -370,7 +359,7 @@ font:
 mask_table:
 	defs #100*2*8
 tables_end:
-	display $
+	display "data ",$
 //----------------------------
 data_start:
 map_1
@@ -381,15 +370,15 @@ map_1
 	db 10,0,0,0,0,14,2,11
 	db 7,0,4,8,9,4,2,10
 
-sprite1:
-	incbin "bin/Spr1.bin"
+;sprite1:
+;	incbin "bin/Spr1.bin"
 	include "sprites/luke.spr"
 graff
 	incbin "bin/riskd1.bin"
 graff_attr
 	defs 48*16
 data_end:
-	display $
+	display "end ",$
 	savesna "main.sna",start
 
 	struct weapon

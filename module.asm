@@ -151,9 +151,8 @@ prepare:
 	ld l,0	
 .loop
 	ld h,high mask_table
-	ld c,#00
+	ld bc,#0800
 	ld a,l
-	ld b,8
 .loop1
 	ld (hl),a
 	inc h
@@ -239,6 +238,8 @@ input:
 	ld a,c
 	pop bc,hl
 	ret
+;a кнопка
+;выход флаг с,z
 stat:	
 	push bc,hl
 	ld c,a
@@ -309,7 +310,7 @@ menu:
 	jr .loop
 after:
 	ld (.hl_mem),hl
-	pop hl
+	pop af,hl
 .loop
 	ld a,(hl)
 	ld c,a
@@ -319,7 +320,7 @@ after:
 	ld a,c
 	cp #80
 	jr c,.loop
-	push hl
+	push hl,af
 	ld hl,(.hl_mem)
 	ret
 .hl_mem	dw 0
@@ -391,7 +392,7 @@ char:
 status_at_y:	equ 1
 status_at_x:	equ 2
 status_color:	equ 3
-at:	equ 1
+at:		equ 1
 attr_set:	equ 2
 //-------------
 _8x8_out:
@@ -442,7 +443,6 @@ attr_out:
 	ld (de),a
 	pop de,af
 	ret
-
 //------------------
 prepare:
 	push af
@@ -460,8 +460,50 @@ color	db 7
 	endmodule
 //----------------------------
 	module screen
-; a íîìåð ôîíà
-; de àäðåñ â ýêðàíå
+
+;ix указатель на карту
+;de область вывода в формате экрана спекки выровненая по %11000000
+;bc ширина карты
+;hl высота ширина в блоках 4 на 4
+out_map:
+
+.loop2
+	push hl,bc,ix
+
+.loop1
+	ld a,(ix)
+	inc ix		
+	push hl,de
+	call out_4x4
+	pop de,hl	
+	ld a,e
+	add a,#04
+	ld e,a
+	and #1f
+	jr z,.lab1
+	dec l
+	jr nz,.loop1	
+.lab1
+	pop ix,bc,hl
+	add ix,bc
+	ld a,e
+	add 3*#20
+	ld e,a
+	jr nc,.lab3
+	ld a,d
+	add 8
+	ld d,a
+	and %00011111
+	cp #18
+	jr z,.lab2
+.lab3	
+	dec h
+	jr nz,.loop2
+.lab2
+	ret
+; a Элемент фона
+; de Адресс в экране
+; портит hl` de`
 out_4x4:
 	ld l,0
 	sra a
@@ -488,11 +530,6 @@ out_4x4:
 	add a,#58
 	ld d,a
 	exx
-// âûâîä ôîíà 4 íà 4 áåç àòðèáóòîâ â ñåòêó 8 íà 6 ýêðàíà
-// hl - ñïðàéò
-// de - àäðåññ â ýêðàíå
-// hl' - àòðèáóòû ñïðàéòà
-// de' - àäðåñ àòðèáóòîâ
 	ld b,d
 	ld c,#80
 .loop1
