@@ -465,7 +465,7 @@ color	db 7
 ;bc ширина карты
 ;hl высота ширина в блоках 4 на 4
 out_map:
-
+	jr $
 .loop2
 	push hl,bc,ix
 

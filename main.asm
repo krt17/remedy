@@ -5,6 +5,7 @@ start:
 	ei
 	call init
 	call main_menu
+	jr $
 	ret
 char1	byte 0,0,0
 init:
@@ -355,7 +356,9 @@ code_end:
 tables_start:
 	align #100
 font:
-	incbin "Fonts/ZN_DGPL.fnt"
+;	incbin "Fonts/news01_f.fnt"
+	incbin "Fonts/SET1.fnt"
+;	incbin "Fonts/IWAM_fnt.fnt"
 mask_table:
 	defs #100*2*8
 tables_end:
