@@ -93,8 +93,7 @@ out_pixel:
 // de screen addr
 // bc b-high c-len
 .loop1
-	push bc
-	push de
+	push bc,de
 .loop
 	ld l,(ix)
 	inc ix
@@ -109,9 +108,8 @@ out_pixel:
 	ld (de),a
 	dec c
 	jr nz,.loop
-	pop de
+	pop de,bc
 	down d,e
-	pop bc
 	djnz .loop1
 	ret
 //--------------------
@@ -447,28 +445,13 @@ attr_out:
 
 //------------------
 prepare:
-	ld de,font
-	ld hl,#3D00
-	ld bc,#300
-.loop
-	ld a,(hl)
-	bit 2,l
-	jr nz,.down
-	rra
-	or (hl)
-.down
-	ld (de),a
-	inc hl
-	inc de
-	dec bc
-	ld a,b
-	or c
-	jr nz,.loop
+	push af
 	xor a
 	ld (x_pos),a
 	ld (y_pos),a
 	ld a,%00111
 	ld (color),a
+	pop af
 	ret
 status	db 0
 x_pos	db 0
@@ -476,6 +459,99 @@ y_pos	db 0
 color	db 7
 	endmodule
 //----------------------------
+	module screen
+; a íîìåð ôîíà
+; de àäðåñ â ýêðàíå
+out_4x4:
+	ld l,0
+	sra a
+	rr l
+	ld h,a
+	ld a,d
+	push hl
+	ld bc,graff
+	add hl,bc
+	exx
+	pop hl
+	sra h
+	rr l
+	sra h
+	rr l
+	sra h
+	rr l
+	ld bc,graff_attr
+	add hl,bc
+	rrca
+	rrca
+	rrca
+	and %0000011
+	add a,#58
+	ld d,a
+	exx
+// âûâîä ôîíà 4 íà 4 áåç àòðèáóòîâ â ñåòêó 8 íà 6 ýêðàíà
+// hl - ñïðàéò
+// de - àäðåññ â ýêðàíå
+// hl' - àòðèáóòû ñïðàéòà
+// de' - àäðåñ àòðèáóòîâ
+	ld b,d
+	ld c,#80
+.loop1
+	ld a,e
+	dup 7
+	ldi	
+	ldi
+	ldi
+	ldi
+	dec de
+	ld e,a
+	inc d
+	edup
+	ldi	
+	ldi
+	ldi
+	ldi
+	dec de
+	exx
+	ld e,a
+	ldi
+	ldi
+	ldi
+	ldi
+	dec de
+	exx
+	add #20
+	ld e,a
+	ld d,b
+	and %01100000
+	jp nz,.loop1
+	ret
+
+prepare 
+	ld hl,graff
+	ld de,graff_attr
+	ld ix,graff
+	ld c,0+(graff_attr-graff)/(4*4*9)
+.loop3
+	ld b,#80
+.loop1
+	ld a,(hl)
+	ld (ix),a
+	inc hl
+	inc ix
+	djnz .loop1
+	ld b,#10
+.loop2
+	ld a,(hl)
+	ld (de),a
+	inc hl
+	inc de
+	djnz .loop2
+	dec c
+	jr nz,.loop3
+	ret
+	endmodule
+;----------------------
+
 
 
 
