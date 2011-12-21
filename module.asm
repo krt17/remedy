@@ -20,34 +20,34 @@
 //---------------------------------
 	module sprite
 get_spr:
-	push de
+; in:
+;	a номер спрайта
+; out:
+;	ix адрес спрайта
+;	b высота, c ширина
+; портит hl
 	ld l,a
 	ld h,0
 	add hl,hl
 	add hl,hl
-	ld de,spr_table
+	ld de,spr_table+3
 	add hl,de
-	ld b,(hl)
-	inc hl
 	ld c,(hl)
-	inc hl
-	ld e,(hl)
-	inc hl
-	ld d,(hl)
-	push de
-	pop hl
-	pop de
+	dec hl
+	ld b,(hl)
+	dec hl
+	ld ix,bc
+	ld c,(hl)
+	dec hl
+	ld b,(hl)
 	ret
-// de coordinates d-y e-x
-// hl sprite mask-data
-// bc b-high c-len
+
 out_mask_pixel:
-	push hl
-	pop ix
+; de coordinates d-y e-x
+; ix sprite mask-data
+; bc b-high c-len
+; портит а
 	call addr_cal
-// ix sprite gorizontal data,mask
-// de screen addr
-// bc b-high c-len
 .loop1
 	push bc
 	push de
@@ -112,10 +112,9 @@ out_pixel:
 	down d,e
 	djnz .loop1
 	ret
-//--------------------
-// in  :d -y e -x
-// out :de addr
-//      h table + offset
+; in  :d -y e -x
+; out :de addr
+;      h table + offset
 addr_cal:
 	ld a,e
 	add a
