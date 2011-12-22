@@ -474,6 +474,7 @@ out_map:
 	inc ix		
 	push hl,de
 	call out_4x4
+	halt
 	pop de,hl	
 	ld a,e
 	add a,#04
