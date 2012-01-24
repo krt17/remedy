@@ -1,0 +1,707 @@
+	device zxspectrum48
+	org#6000
+chunks	equ #e1e1
+tab_mv	equ #e000	;map element to voxel with attitude correction
+	display "tab_mv ",tab_mv," ",#10000-tab_mv
+
+an_sec	equ #40
+vox_rw	equ #10
+tab_am	equ (tab_mv-an_sec*8*vox_rw)
+	display "tab_am ",tab_am," ",an_sec*8*vox_rw
+ 
+el_num	equ #20
+el_cl	equ #10
+el_rw	equ #10
+map_el	equ (tab_am-el_num*el_cl*el_rw)&(#10000-el_num*el_cl*el_rw) ;#a000	;#2000 map elements 32x16x16
+	display "map_el ",map_el," ",el_num*el_cl*el_rw
+
+ml_cl	equ #40		; colums in map (max x)
+ml_rw	equ #40		; rows in map (max y)
+map_lr	equ (map_el-ml_cl*ml_rw)&(#10000-ml_cl*ml_rw) ;#d000	;#1000 64x64
+	display "map_lr ",map_lr," ",ml_cl*ml_rw
+
+vox_hg	equ #30
+vox_cl	equ #40
+vox_scr	equ map_lr-vox_rw*vox_cl*2
+vox_map	equ vox_scr
+	display "vox_map ",vox_map," ",vox_rw*vox_cl*2
+chk_len	equ vox_cl/2	;#20 max!!! in char goriz
+chk_hgt	equ #0c 	;#18 max!!! in char vert
+chk_scr	equ (vox_scr-chk_len*2*chk_hgt*4)	;64x64 max!!!!
+	display "chk_scr ",chk_scr," ",chk_len*2*chk_hgt*4
+tab_x10	equ chk_scr-#100	;l*#10+ 
+tab_cm	equ tab_x10-#200	;coord to map l*#40+map data
+
+
+code_start
+
+start	
+	ld sp,#6000
+	call test_fill
+	xor a
+	out (#fe),a
+	call tab_mv_generator
+	call chunk_generator
+	call tab_cl_generator
+	call tab_x10_generator
+.l1
+	halt
+	call rotator
+	ld a,1
+	out (#fe),a
+	call voxel_maper
+	ld a,0
+	out (#fe),a
+	ld hl,chk_scr
+	call chunks_out
+	jr .l1
+	ret
+;----------------------------------
+test_fill
+;fill voxel bufer
+	ld hl,vox_scr
+	ld bc,vox_rw*vox_cl
+.loop
+	ld a,l
+	rrca
+	and #1f
+	ld d,a
+	ld a,l
+	rrca
+	and #0f
+	add d
+	neg
+	add #30 
+	ld (hl),a
+	inc hl
+	ld (hl),#e1+1*2
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,.loop
+;fill chank scr
+	ld hl,chk_scr
+	ld bc,chk_len*2*chk_hgt*4
+.loop1
+	ld a,l
+	ld a,0
+	and #0f
+	add a,a
+	or %11100001
+	ld (hl),a
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,.loop1
+;big map generator
+	ld hl,map_lr
+	ld bc,ml_cl*ml_rw
+.loop2
+	ld (hl),high map_el
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,.loop2
+;map elements generator
+	ld hl,map_el
+	ld bc,el_num*el_cl*el_rw
+.loop3
+	ld (hl),0
+	inc hl
+	dec bc
+	ld a,b
+	or c
+	jr nz,.loop3
+;perspective lines
+	ld hl,tab_am
+	ld bc,an_sec*vox_rw
+.loop4
+	ld (hl),#00
+	inc l
+	ld (hl),#01
+	inc l
+	ld (hl),#10
+	inc l
+	ld (hl),#00
+	inc h
+
+	ld (hl),#00
+	dec l
+	ld (hl),#00
+	dec l
+	ld (hl),#00
+	dec l
+	ld (hl),#00
+	dec h
+
+	ld de,#0004
+	add hl,de
+
+	dec bc
+	ld a,b
+	or c
+	jr nz,.loop4
+	ret
+;--------------------------
+proc
+;--------------------------
+chunks_out
+	ld (.mem_sp+1),sp
+	ld sp,hl
+	ld de,#4000+chk_len+(#20-chk_len)/2-1
+	ld bc,de
+	inc b
+	inc bc
+	ld a,chk_hgt
+	exa
+.loop1
+	dup chk_len
+	pop hl
+	ldd
+	ld a,(hl)
+	ld (bc),a
+	edup
+	ld hl,#200+chk_len
+	add hl,de
+	ex de,hl
+	ld bc,de
+	inc b
+	inc bc
+	ld a,d
+	and #07
+	jp nz,.loop1
+	ld a,d
+	sub #08
+	ld d,a
+	ld b,a
+	inc b
+	ld a,e
+	add #20
+	ld e,a
+	ld c,a
+	inc bc
+	exa
+	dec a
+	jr z,.exit
+	exa
+	jp nc,.loop1
+	ld a,d
+	add a,#08
+	ld d,a
+	ld b,a
+	inc b
+	jp .loop1
+.exit
+.mem_sp
+	ld sp,0
+	ret
+;-------------------------
+rotator
+	ld a,(pl_angle)
+	ld b,#40
+	sub b
+	jr nc,.l1
+	ld hl,.pp_sec
+	jr .l4
+.l1
+	sub b
+	jr nc,.l2
+	ld hl,.mp_sec
+	jr .l4
+.l2
+	sub b
+	jr nc,.l3
+	ld hl,.mm_sec
+	jr .l4
+.l3
+	sub b
+	ld hl,.pm_sec
+.l4	
+	ld (.sub_ang+1),hl
+	add b
+	add a
+	add a
+	ld l,a
+	ld h,high tab_am
+	jp .maper
+.pp_sec
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc l
+	ex de,hl
+	ld hl,(pl_x)
+	add hl,bc
+	ex de,hl
+	push de	;   x
+	
+	ld c,(hl)
+	inc l
+	ld b,(hl)
+	inc h
+	push bc		;dx
+	
+	ld b,(hl)
+	dec l
+	ld c,(hl)
+	dec l
+	push bc		;dy
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec h
+	ex de,hl
+	ld hl,(pl_y)
+	add hl,bc
+	ex de,hl
+	push de		;y
+
+	pop iy
+	pop de
+	pop bc
+	pop ix
+	ret
+.mp_sec
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc l
+	ex de,hl
+	ld hl,(pl_y)
+	add hl,bc
+	ex de,hl
+	push de		;y
+
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc h
+	push bc		;dy
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec l
+	ex de,hl
+	xor a
+	ld l,a
+	ld h,a
+	sbc hl,bc
+	ex de,hl
+	push de		;dx
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec h
+	ex de,hl
+	ld hl,(pl_x)
+	add hl,bc
+	ex de,hl
+	push de		;x
+
+	pop ix
+	pop bc
+	pop de
+	pop iy
+
+	ret
+
+.mm_sec
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc l
+	ex de,hl
+	ld hl,(pl_x)
+	or a
+	sbc hl,bc
+	ex de,hl
+	push de		;x
+
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc h
+	ex de,hl
+	xor a
+	ld l,a
+	ld h,a
+	sbc hl,bc
+	ex de,hl
+	push de		;dx
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec l
+	ex de,hl
+	xor a
+	ld l,a
+	ld h,a
+	sbc hl,bc
+	ex de,hl
+	push de		;dy
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec h
+	ex de,hl
+	ld hl,(pl_y)
+	or a
+	sbc hl,bc
+	ex de,hl
+	push de		;y
+
+	pop iy
+	pop de
+	pop bc
+	pop ix
+	ret
+
+.pm_sec
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc l
+	ex de,hl
+	ld hl,(pl_y)
+	add hl,bc
+	ex de,hl
+	push de		;y
+	
+	ld c,(hl)
+	inc l
+	ld b,(hl)	
+	inc h
+	ex de,hl
+	xor a
+	ld l,a
+	ld h,a
+	sbc hl,bc
+	ex de,hl
+	push de		;dy
+	
+	ld b,(hl)
+	dec l
+	ld c,(hl)
+	dec l
+	push bc		;dx
+
+	ld b,(hl)
+	dec l
+	ld c,(hl)	
+	dec h
+	ex de,hl
+	ld hl,(pl_x)
+	add hl,bc
+	ex de,hl
+	push de		;x
+
+	pop ix
+	pop bc
+	pop de
+	pop iy
+	ret
+
+.maper
+	push hl
+	ld hl,vox_scr
+	exx
+	ld c,high tab_mv
+	ld b,high tab_cm
+	ld d,high tab_x10
+.loop1
+	exx
+	ex (sp),hl
+.sub_ang
+	call $
+	inc h
+	inc h
+	ex (sp),hl
+	exx
+;199 on voxel
+	dup vox_cl
+	ld a,hy
+	ld l,a
+	ld h,b
+	ld a,hx
+	and #3f
+	add (hl)
+	inc h
+	ld h,(hl)
+	ld l,a
+
+	;(hl)элемент карты
+	ld e,lx
+	ex de,hl
+	ld a,ly
+	and #f0
+	or (hl)
+
+	ex de,hl
+	ld h,(hl)
+	ld l,a	
+	;(hl) voxel!!!
+	ld l,(hl)
+	ld h,c
+	ld a,(hl)
+	inc h
+	exa
+	ld a,(hl)
+	exx
+	ld (hl),a
+	inc l
+	exa
+	ld (hl),a
+	inc hl
+	add ix,bc
+	add iy,de
+	exx
+	edup
+	inc c
+	inc c
+	ld a,c
+	or a
+	jp nz,.loop1
+	pop hl
+	ret
+;--------------------------------------
+voxel_maper
+	ld hl,vox_map
+	ld de,vox_cl*2-1
+	exx
+	ld hl,chk_scr+chk_len*2*(chk_hgt*4)
+	ld bc,0-chk_len*2
+	ld d,vox_cl
+.loop2
+	push hl
+	exx
+	push hl
+	ld b,vox_rw
+	ld a,vox_hg
+;---------------
+.loop
+	cp (hl)
+	jp c,.l2
+	jp z,.l3
+	cpl
+	ld c,(hl)
+	add vox_hg+#01
+	add (hl)
+	add a
+	ld (.jr+1),a
+	inc l
+	ld a,(hl)
+	exx
+.jr
+	jr $
+
+	dup vox_hg	;18
+	add hl,bc
+	ld (hl),a
+	edup
+
+	exx
+	ld a,c
+	add hl,de
+	dec b
+	jp nz,.loop
+	jp .l1
+.l2
+	adc hl,de
+	exx
+	set 4,(hl) ; !!!!
+	exx
+	dec b
+	jp nz,.loop
+.l1
+	pop hl
+	inc l
+	inc hl
+	exx
+	pop hl
+	inc hl
+	dec d
+	jp nz,.loop2	
+	ret
+.l3
+	inc l
+	add hl,de
+	dec b
+	jp nz,.loop
+	jp .l1
+;------------------
+generators
+;--------------------------------------
+chunk_generator
+	ld hl,chunks -1
+	ld iy,.tab
+	ld b,#10
+.loop2
+	push bc
+	ld ix,.tab
+	ld b,#10
+.loop1
+	ld a,(ix+0)
+	xor (iy+0)
+	and #0f
+	xor (iy+0)
+	ld (hl),a
+	inc hl
+	ld a,(ix+1)
+	xor (iy+1)
+	and #0f
+	xor (iy+1)
+	ld (hl),a
+	inc ix
+	inc ix
+	inc hl
+	djnz .loop1
+	ld bc,#200-#20
+	add hl,bc
+	inc iy
+	inc iy
+	pop bc
+	djnz .loop2
+	ret
+.tab
+	defb %00000000,%00000000
+	defb %10001000,%00000000
+	defb %10001000,%00010001
+	defb %10101010,%00010001
+	defb %10101010,%01010101
+	defb %11101110,%11011101
+	defb %11111111,%11011101
+	defb %11111111,%11111111
+
+	defb %00000000,%11111111
+	defb %10001000,%11111111
+	defb %10001000,%11111111
+	defb %10101010,%11111111
+	defb %10101010,%11111111
+	defb %11101110,%11111111
+	defb %11111111,%11111111
+	defb %11111111,%11111111
+
+
+tab_x10_generator 
+;adr = a4a5a6a7x0x0x0x0
+	ld hl,tab_x10
+.loop
+	ld a,l
+	rlca
+	rlca
+	rlca
+	rlca
+	and #0f
+	ld (hl),a
+	inc l
+	jr nz,.loop
+	ret
+;
+tab_mv_generator	;only for testing
+	ld hl,tab_mv
+.loop1
+	ld a,h
+	rrca
+	and #0f
+	ld c,a	;l
+	inc a
+	add a,a
+	ld b,a	;(l+1)x2
+	push bc
+	ld a,#10
+	sub c
+	add a
+	add a
+	add a
+	add a
+	ld c,a
+	ld a,0
+	adc 0
+	ld b,a
+	ld a,l
+	rrca
+	rrca
+	rrca
+	and #1f
+	cp #18
+	jr c,.l1
+	ld a,#17
+.l1
+	push hl
+	ld hl,0
+.m2
+	or a
+	jr z,.m1
+	dec a
+	add hl,bc
+	jr .m2
+.m1
+	ld d,h
+	pop hl
+	pop bc
+	ld a,d
+	add a
+;	add d
+;	rra
+;	adc 0
+	ld d,a	;(h-2l)x3/2
+
+	ld a,#31
+	sub b
+	sub d
+	ld (hl),a
+	inc h
+	ld a,l
+	and #07
+	add a,a
+	or #e1
+	ld (hl),a
+	dec h
+	inc l
+	jr nz,.loop1
+	inc h
+	inc h
+	ld a,h
+	or a
+	jr nz,.loop1
+	ret
+;-------------------------
+
+tab_cl_generator ;only for 64 column map
+; adr = 0000 a0a1a2a3 : a4a500 0000 + map_el
+	ld hl,tab_cm
+.loop
+	ld a,l
+	rrca
+	rrca
+	and #c0
+	ld (hl),a
+	inc h
+	ld a,l
+	rrca
+	rrca
+	and #0f
+	add high map_el
+	ld (hl),a
+	dec h
+	inc l
+	jr nz,.loop
+	ret
+;----------------------------------------------------
+code_end
+;------------------------------------------
+pl_x	defw #0000
+pl_y	defw #0000
+pl_angle	defb #00
+
+
+	display "code ",code_start," ",$," total leingh ",$-code_start
+	savesna "voxel.sna",start
